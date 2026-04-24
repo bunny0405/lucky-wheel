@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>轉盤抽抽樂</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #D980A8;
+    --primary-light: #faedf4;
+    --accent: #E8899A;
+    --success: #1D9E75;
+    --bg: #fff8fb;
+    --surface: #ffffff;
+    --border: rgba(0,0,0,0.10);
+    --text: #1a1a2e;
+    --text-sub: #6b6b80;
+    --radius: 14px;
+    --radius-sm: 8px;
+  }
+  html, body {
+    height: 100%;
+    background: #FFF3E0;
+    font-family: -apple-system, 'Noto Sans TC', 'PingFang TC', sans-serif;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  #app {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    background: transparent;
+    padding-bottom: 2rem;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--border);
+    padding: 14px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .header h1 { font-size: 18px; font-weight: 600; color: var(--text); }
+  .admin-btn {
+    font-size: 12px;
+    padding: 6px 14px;
+    border: 0.5px solid var(--border);
+    border-radius: 99px;
+    background: var(--surface);
+    color: var(--text-sub);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .admin-btn:hover { background: var(--bg); }
+
+  /* ── WHEEL SECTION ── */
+  .wheel-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 16px 16px;
+    gap: 16px;
+  }
+  .wheel-wrap {
+    position: relative;
+    width: 300px;
+    height: 300px;
+  }
+  #spinCanvas {
+    border-radius: 50%;
+    display: block;
+    box-shadow: 0 4px 20px rgba(83,74,183,0.15);
+  }
+  .pointer {
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 12px solid transparent;
+    border-right: 12px solid transparent;
+    border-top: 24px solid var(--accent);
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.2));
+  }
+  #spinBtn {
+    width: 100%;
+    max-width: 300px;
+    padding: 14px;
+    font-size: 17px;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--primary);
+    color: #fff;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    letter-spacing: 1px;
+  }
+  #spinBtn:hover:not(:disabled) { opacity: 0.9; }
+  #spinBtn:active:not(:disabled) { transform: scale(0.97); }
+  #spinBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── QUOTA SECTION ── */
+  .quota-section {
+    padding: 0 16px;
+  }
+  .section-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-sub);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .quota-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .q-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    transition: opacity 0.3s;
+  }
+  .q-card.empty { opacity: 0.4; }
+  .q-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+  .badge-avail {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background: #E1F5EE;
+    color: #0F6E56;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+  .badge-done {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background: #f1efe8;
+    color: #888780;
+    white-space: nowrap;
+  }
+
+  /* ── OVERLAYS ── */
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+  .overlay.active { display: flex; }
+
+  /* ── WIN MODAL ── */
+  .win-box {
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 2.5rem 1.5rem 2rem;
+    width: 100%;
+    max-width: 320px;
+    text-align: center;
+    position: relative;
+  }
+  .win-emoji { font-size: 52px; margin-bottom: 12px; display: block; }
+  .win-title { font-size: 15px; color: var(--text-sub); margin-bottom: 6px; }
+  .win-prize {
+    font-size: 26px;
+    font-weight: 700;
+    color: #D980A8;
+    margin-bottom: 8px;
+    line-height: 1.3;
+  }
+  .win-sub {
+    font-size: 12px;
+    color: var(--text-sub);
+    margin-bottom: 1.75rem;
+    line-height: 1.6;
+  }
+  .win-close {
+    width: 100%;
+    padding: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--primary);
+    color: #fff;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .win-close:hover { opacity: 0.9; }
+
+  /* confetti dots */
+  .dot {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    pointer-events: none;
+    animation: confetti-fall 1.3s ease-in forwards;
+  }
+  @keyframes confetti-fall {
+    0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(160px) rotate(400deg); opacity: 0; }
+  }
+
+  /* ── PASSWORD MODAL ── */
+  .pw-box {
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 2rem 1.5rem;
+    width: 100%;
+    max-width: 300px;
+    text-align: center;
+  }
+  .pw-box h3 { font-size: 17px; font-weight: 600; margin-bottom: 6px; }
+  .pw-box p  { font-size: 13px; color: var(--text-sub); margin-bottom: 1rem; }
+  .pw-box input {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 15px;
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--text);
+    margin-bottom: 6px;
+    text-align: center;
+    letter-spacing: 4px;
+    outline: none;
+  }
+  .pw-box input:focus { border-color: var(--primary); }
+  .pw-err { font-size: 12px; color: #E24B4A; min-height: 18px; margin-bottom: 8px; }
+  .modal-btns { display: flex; gap: 8px; }
+  .modal-btns button {
+    flex: 1; padding: 10px;
+    font-size: 14px; font-weight: 500;
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .modal-btns button:hover { background: var(--bg); }
+  .modal-btns .primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .modal-btns .primary:hover { opacity: 0.9; background: var(--primary); }
+
+  /* ── ADMIN PANEL ── */
+  .admin-panel {
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--border);
+    padding: 1rem 16px;
+    margin-bottom: 8px;
+  }
+  .panel-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-sub);
+    margin-bottom: 10px;
+    letter-spacing: 0.3px;
+  }
+  .add-row { display: flex; gap: 6px; margin-bottom: 0; }
+  .add-row input {
+    padding: 8px 10px;
+    font-size: 13px;
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+  }
+  .add-row input:focus { border-color: var(--primary); }
+  .add-row input.name-in { flex: 1; min-width: 0; }
+  .add-row input.num-in  { width: 70px; }
+  .add-row .add-btn {
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--primary);
+    color: #fff;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .edit-header-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0 6px;
+    border-bottom: 0.5px solid var(--border);
+    margin-bottom: 2px;
+  }
+  .item-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 0;
+    border-bottom: 0.5px solid var(--border);
+  }
+  .item-row:last-child { border-bottom: none; }
+  .item-name { flex: 1; font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item-row input[type=number] {
+    width: 64px;
+    padding: 5px 8px;
+    font-size: 13px;
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    text-align: center;
+  }
+  .item-row input[type=number]:focus { border-color: var(--primary); }
+  .del-btn {
+    padding: 5px 10px;
+    font-size: 12px;
+    border: 0.5px solid rgba(226,75,74,0.3);
+    border-radius: var(--radius-sm);
+    background: #fff0f0;
+    color: #A32D2D;
+    cursor: pointer;
+  }
+  .del-btn:hover { background: #fde8e8; }
+  .pw-change-row { display: flex; gap: 6px; }
+  .pw-change-row input {
+    flex: 1;
+    padding: 8px 10px;
+    font-size: 13px;
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    letter-spacing: 2px;
+  }
+  .pw-change-row input:focus { border-color: var(--primary); }
+  .pw-change-row button {
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--primary);
+    color: #fff;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  #pwMsg { font-size: 12px; color: var(--success); min-height: 16px; margin-top: 6px; }
+  .reset-btn {
+    width: 100%;
+    padding: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: #fff3f7;
+    color: #D980A8;
+    cursor: pointer;
+    border: 1px solid #f0c0d8;
+    transition: background 0.15s;
+  }
+  .reset-btn:hover { background: #fde8f2; }
+  .back-btn {
+    display: block;
+    width: calc(100% - 32px);
+    margin: 12px 16px 0;
+    padding: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    text-align: center;
+    transition: background 0.12s;
+  }
+  .back-btn:hover { background: var(--bg); }
+
+  /* views */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  #hibiscusBg {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+  #app { position: relative; z-index: 1; }
+  .overlay { z-index: 100; }
+</style>
+</head>
+<body>
+<svg id="hibiscusBg" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100%" height="100%" fill="#FFF3E0"/>
+  <defs>
+    <!-- Cartoon hibiscus: 5 petals, red ring, yellow stamen -->
+    <!-- Flower A: warm orange -->
+    <g id="flwA">
+      <ellipse cx="0" cy="-22" rx="10" ry="18" fill="#FFAB5E" opacity="0.9"/>
+      <ellipse cx="0" cy="-22" rx="10" ry="18" fill="#FFAB5E" opacity="0.9" transform="rotate(72)"/>
+      <ellipse cx="0" cy="-22" rx="10" ry="18" fill="#FF9A42" opacity="0.9" transform="rotate(144)"/>
+      <ellipse cx="0" cy="-22" rx="10" ry="18" fill="#FFAB5E" opacity="0.9" transform="rotate(216)"/>
+      <ellipse cx="0" cy="-22" rx="10" ry="18" fill="#FF9A42" opacity="0.9" transform="rotate(288)"/>
+      <circle cx="0" cy="0" r="9" fill="#D94040"/>
+      <circle cx="0" cy="0" r="5" fill="#FFD740"/>
+      <circle cx="0" cy="-4" r="1.5" fill="#fff" opacity="0.7"/>
+    </g>
+    <!-- Flower B: peachy mango -->
+    <g id="flwB">
+      <ellipse cx="0" cy="-20" rx="9" ry="16" fill="#FFB86C" opacity="0.9"/>
+      <ellipse cx="0" cy="-20" rx="9" ry="16" fill="#FFA040" opacity="0.9" transform="rotate(72)"/>
+      <ellipse cx="0" cy="-20" rx="9" ry="16" fill="#FFB86C" opacity="0.9" transform="rotate(144)"/>
+      <ellipse cx="0" cy="-20" rx="9" ry="16" fill="#FFA040" opacity="0.9" transform="rotate(216)"/>
+      <ellipse cx="0" cy="-20" rx="9" ry="16" fill="#FFB86C" opacity="0.9" transform="rotate(288)"/>
+      <circle cx="0" cy="0" r="8" fill="#C0392B"/>
+      <circle cx="0" cy="0" r="4.5" fill="#FFE066"/>
+      <circle cx="0" cy="-3.5" r="1.2" fill="#fff" opacity="0.6"/>
+    </g>
+    <!-- Flower C: coral orange (accent) -->
+    <g id="flwC">
+      <ellipse cx="0" cy="-24" rx="11" ry="19" fill="#FFBE7A" opacity="0.88"/>
+      <ellipse cx="0" cy="-24" rx="11" ry="19" fill="#FF9F55" opacity="0.88" transform="rotate(72)"/>
+      <ellipse cx="0" cy="-24" rx="11" ry="19" fill="#FFBE7A" opacity="0.88" transform="rotate(144)"/>
+      <ellipse cx="0" cy="-24" rx="11" ry="19" fill="#FF9F55" opacity="0.88" transform="rotate(216)"/>
+      <ellipse cx="0" cy="-24" rx="11" ry="19" fill="#FFBE7A" opacity="0.88" transform="rotate(288)"/>
+      <circle cx="0" cy="0" r="10" fill="#BF360C"/>
+      <circle cx="0" cy="0" r="5.5" fill="#FFD740"/>
+      <circle cx="0" cy="-4.5" r="1.8" fill="#fff" opacity="0.65"/>
+    </g>
+    <!-- Small leaf -->
+    <g id="leaf">
+      <ellipse cx="0" cy="-10" rx="5" ry="10" fill="#88C872" opacity="0.7"/>
+      <line x1="0" y1="0" x2="0" y2="-18" stroke="#6aaa55" stroke-width="1" opacity="0.5"/>
+    </g>
+  </defs>
+
+  <!-- Scattered cartoon flowers, low opacity for background feel -->
+  <g opacity="0.22">
+    <!-- top-left large -->
+    <g transform="translate(-10, 30) rotate(-15) scale(1.8)"><use href="#flwC"/></g>
+    <g transform="translate(55, 10) rotate(20) scale(0.9)"><use href="#leaf"/></g>
+    <g transform="translate(18, 100) rotate(10) scale(0.85)"><use href="#flwA"/></g>
+
+    <!-- top-right -->
+    <g transform="translate(430, -10) rotate(25) scale(2.0)"><use href="#flwA"/></g>
+    <g transform="translate(390, 60) rotate(-10) scale(0.9)"><use href="#leaf"/></g>
+    <g transform="translate(460, 80) rotate(40) scale(1.0)"><use href="#flwB"/></g>
+
+    <!-- mid-left -->
+    <g transform="translate(-20, 380) rotate(30) scale(1.5)"><use href="#flwB"/></g>
+    <g transform="translate(40, 440) rotate(-20) scale(0.8)"><use href="#leaf"/></g>
+
+    <!-- mid-right -->
+    <g transform="translate(470, 300) rotate(-30) scale(1.3)"><use href="#flwC"/></g>
+    <g transform="translate(440, 380) rotate(15) scale(0.75)"><use href="#flwA"/></g>
+
+    <!-- bottom-left -->
+    <g transform="translate(-15, 660) rotate(-25) scale(1.9)"><use href="#flwA"/></g>
+    <g transform="translate(50, 730) rotate(10) scale(0.9)"><use href="#leaf"/></g>
+    <g transform="translate(20, 800) rotate(35) scale(1.1)"><use href="#flwB"/></g>
+
+    <!-- bottom-right -->
+    <g transform="translate(420, 700) rotate(20) scale(1.6)"><use href="#flwC"/></g>
+    <g transform="translate(390, 780) rotate(-15) scale(0.85)"><use href="#leaf"/></g>
+    <g transform="translate(460, 820) rotate(45) scale(1.0)"><use href="#flwA"/></g>
+
+    <!-- bottom-center -->
+    <g transform="translate(200, 850) rotate(-10) scale(1.4)"><use href="#flwB"/></g>
+
+    <!-- small accent flowers -->
+    <g transform="translate(240, 50) rotate(5) scale(0.65)"><use href="#flwA"/></g>
+    <g transform="translate(350, 500) rotate(-40) scale(0.6)"><use href="#flwC"/></g>
+    <g transform="translate(100, 550) rotate(22) scale(0.55)"><use href="#flwB"/></g>
+  </g>
+</svg>
+
+
+
+<div id="app">
+
+  <!-- MAIN VIEW -->
+  <div id="mainView" class="view active">
+    <div class="header">
+      <h1>轉盤抽抽樂</h1>
+      <button class="admin-btn" onclick="openAdmin()">後台管理</button>
+    </div>
+    <div class="wheel-section">
+      <div class="wheel-wrap">
+        <div class="pointer"></div>
+        <canvas id="spinCanvas" width="300" height="300"></canvas>
+      </div>
+      <button id="spinBtn" onclick="spin()">開始轉動</button>
+    </div>
+  </div>
+
+  <!-- ADMIN VIEW -->
+  <div id="adminView" class="view">
+    <div class="header">
+      <h1>後台管理</h1>
+      <button class="admin-btn" onclick="closeAdmin()">返回轉盤</button>
+    </div>
+    <div style="height:8px;background:var(--bg);"></div>
+    <div class="admin-panel">
+      <p class="panel-title">新增獎品</p>
+      <div class="add-row">
+        <input class="name-in" id="newName" placeholder="獎品名稱" maxlength="12">
+        <input class="num-in" id="newQuota" type="number" min="1" max="9999" placeholder="配額">
+        <button class="add-btn" onclick="addPrize()">新增</button>
+      </div>
+    </div>
+    <div class="admin-panel">
+      <p class="panel-title">編輯配額</p>
+      <div id="editList"></div>
+    </div>
+    <div class="admin-panel">
+      <p class="panel-title">重置今日配額</p>
+      <p style="font-size:12px;color:var(--text-sub);margin-bottom:10px;">將所有獎品恢復為各自設定的「每日配額」數量，適合每天活動開始前操作。</p>
+      <button class="reset-btn" onclick="confirmReset()">重置為初始配額</button>
+      <div id="resetMsg" style="font-size:12px;color:#1D9E75;min-height:16px;margin-top:6px;"></div>
+    </div>
+    <div class="admin-panel">
+      <p class="panel-title">修改管理密碼</p>
+      <div class="pw-change-row">
+        <input type="password" id="newPw" placeholder="輸入新密碼">
+        <button onclick="changePw()">更新</button>
+      </div>
+      <div id="pwMsg"></div>
+    </div>
+    <button class="back-btn" onclick="closeAdmin()">關閉後台</button>
+  </div>
+
+</div>
+
+<!-- PASSWORD OVERLAY -->
+<div class="overlay" id="pwOverlay">
+  <div class="pw-box">
+    <h3>後台管理</h3>
+    <p>請輸入管理員密碼</p>
+    <input type="password" id="pwInput" placeholder="••••" onkeydown="if(event.key==='Enter')checkPw()">
+    <div class="pw-err" id="pwErr"></div>
+    <div class="modal-btns">
+      <button onclick="closePwOverlay()">取消</button>
+      <button class="primary" onclick="checkPw()">確認</button>
+    </div>
+  </div>
+</div>
+
+<!-- WIN OVERLAY -->
+<div class="overlay" id="winOverlay">
+  <div class="win-box" id="winBox">
+    <span class="win-emoji">🎉</span>
+    <div class="win-title">抽中獎品</div>
+    <div class="win-prize" id="winPrizeName"></div>
+    <button class="win-close" onclick="closeWin()">關閉</button>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'spinPrizes_v2';
+const PW_KEY      = 'spinAdminPw_v2';
+
+const WHEEL_COLORS = [
+  '#E8899A','#6DB8D4','#F0B96A','#7ECFB8',
+  '#C096D0','#F5D98A','#D980A8','#92C8DC',
+  '#F0AEBE','#96D4C4','#F0B488','#E896B8'
+];
+const CONFETTI_COLORS = ['#E8899A','#6DB8D4','#F0B96A','#7ECFB8','#C096D0','#D980A8','#F0B488','#92C8DC'];
+
+const DEFAULT_PRIZES = [
+  { name: '聯名化妝包',  quota: 211, dailyQuota: 211 },
+  { name: '聯名吊飾',    quota: 3,   dailyQuota: 3   },
+  { name: '聯名貼紙',    quota: 7,   dailyQuota: 7   },
+  { name: '聯名零錢包',  quota: 1,   dailyQuota: 1   },
+  { name: '聯名購物袋',  quota: 7,   dailyQuota: 7   },
+];
+
+function loadPrizes() {
+  try {
+    const d = localStorage.getItem(STORAGE_KEY);
+    if (d) {
+      const parsed = JSON.parse(d);
+      return parsed.map(p => ({
+        name: p.name,
+        quota: p.quota ?? 0,
+        dailyQuota: p.dailyQuota ?? p.quota ?? 0
+      }));
+    }
+  } catch(e) {}
+  return JSON.parse(JSON.stringify(DEFAULT_PRIZES));
+}
+function savePrizes() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(prizes)); } catch(e) {}
+}
+function loadPw() { return localStorage.getItem(PW_KEY) || '1234'; }
+function savePw(p) { localStorage.setItem(PW_KEY, p); }
+
+let prizes  = loadPrizes();
+let spinning = false;
+let angle    = 0;
+
+const canvas = document.getElementById('spinCanvas');
+const ctx    = canvas.getContext('2d');
+
+function active() { return prizes.filter(p => p.quota > 0); }
+
+/* ── DRAW WHEEL ── */
+function drawWheel(off = 0) {
+  const sl = active();
+  const cx = 150, cy = 150, r = 136;
+  ctx.clearRect(0, 0, 300, 300);
+
+  if (!sl.length) {
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
+    ctx.fillStyle = '#D3D1C7'; ctx.fill();
+    ctx.fillStyle = '#888780'; ctx.font = '15px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('所有獎品已兌完', cx, cy);
+    return;
+  }
+
+  const step = Math.PI * 2 / sl.length;
+  sl.forEach((p, i) => {
+    const s = off + i * step - Math.PI / 2;
+    const e = s + step;
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, s, e); ctx.closePath();
+    ctx.fillStyle = WHEEL_COLORS[i % WHEEL_COLORS.length]; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
+
+    ctx.save();
+    ctx.translate(cx, cy); ctx.rotate(s + step / 2);
+    const fs = Math.min(15, Math.max(10, 110 / sl.length + 6));
+    ctx.fillStyle = '#fff';
+    ctx.font = `${fs}px -apple-system, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const label = p.name.length > 6 ? p.name.slice(0, 5) + '…' : p.name;
+    ctx.fillText(label, r * 0.60, 0);
+    ctx.restore();
+  });
+
+  /* center hub */
+  ctx.beginPath(); ctx.arc(cx, cy, 20, 0, Math.PI*2);
+  ctx.fillStyle = '#fff'; ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.08)'; ctx.lineWidth = 1; ctx.stroke();
+}
+
+/* ── EDIT LIST ── */
+function renderEdit() {
+  document.getElementById('editList').innerHTML = `
+    <div class="edit-header-row">
+      <span style="flex:1;font-size:11px;color:var(--text-sub);">獎品</span>
+      <span style="width:72px;font-size:11px;color:var(--text-sub);text-align:center;">每日配額</span>
+      <span style="width:72px;font-size:11px;color:var(--text-sub);text-align:center;">剩餘數量</span>
+      <span style="width:40px;"></span>
+    </div>` +
+  prizes.map((p, i) => `
+    <div class="item-row">
+      <span class="item-name" title="${p.name}">${p.name}</span>
+      <input type="number" min="0" max="9999" value="${p.dailyQuota}" title="每日配額" onchange="setDailyQ(${i},this.value)" style="width:72px;text-align:center;">
+      <input type="number" min="0" max="9999" value="${p.quota}" title="剩餘數量" onchange="setQ(${i},this.value)" style="width:72px;text-align:center;">
+      <button class="del-btn" onclick="delPrize(${i})">刪</button>
+    </div>`).join('');
+}
+
+function setQ(i, v) {
+  prizes[i].quota = Math.max(0, parseInt(v) || 0);
+  savePrizes(); renderQuota(); drawWheel(angle);
+}
+function setDailyQ(i, v) {
+  prizes[i].dailyQuota = Math.max(0, parseInt(v) || 0);
+  savePrizes();
+}
+function delPrize(i) {
+  if (!confirm(`確定刪除「${prizes[i].name}」嗎？`)) return;
+  prizes.splice(i, 1);
+  savePrizes(); renderQuota(); renderEdit(); drawWheel(angle);
+}
+function addPrize() {
+  const n = document.getElementById('newName').value.trim();
+  const q = parseInt(document.getElementById('newQuota').value) || 0;
+  if (!n)    { alert('請填寫獎品名稱'); return; }
+  if (q < 1) { alert('配額至少為 1');   return; }
+  prizes.push({ name: n, quota: q, dailyQuota: q });
+  document.getElementById('newName').value  = '';
+  document.getElementById('newQuota').value = '';
+  savePrizes(); renderQuota(); renderEdit(); drawWheel(angle);
+}
+function changePw() {
+  const v = document.getElementById('newPw').value.trim();
+  if (!v) { document.getElementById('pwMsg').textContent = '請輸入新密碼'; return; }
+  savePw(v);
+  document.getElementById('newPw').value = '';
+  document.getElementById('pwMsg').textContent = '密碼已更新！';
+  setTimeout(() => document.getElementById('pwMsg').textContent = '', 2500);
+}
+
+/* ── VIEWS ── */
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function openAdmin()   { showOverlay('pwOverlay'); setTimeout(() => document.getElementById('pwInput').focus(), 80); }
+function closePwOverlay() { hideOverlay('pwOverlay'); document.getElementById('pwInput').value = ''; document.getElementById('pwErr').textContent = ''; }
+function closeAdmin()  { showView('mainView'); }
+
+function checkPw() {
+  if (document.getElementById('pwInput').value === loadPw()) {
+    closePwOverlay(); renderEdit(); showView('adminView');
+  } else {
+    document.getElementById('pwErr').textContent = '密碼錯誤，請重試';
+  }
+}
+
+function showOverlay(id) { document.getElementById(id).classList.add('active'); }
+function hideOverlay(id) { document.getElementById(id).classList.remove('active'); }
+function closeWin()      { hideOverlay('winOverlay'); }
+
+/* ── CONFETTI ── */
+function spawnConfetti() {
+  const wrap = document.getElementById('winBox');
+  for (let i = 0; i < 28; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot';
+    d.style.cssText = `
+      left:${5 + Math.random()*90}%;
+      top:${5 + Math.random()*50}%;
+      background:${CONFETTI_COLORS[i % CONFETTI_COLORS.length]};
+      width:${6+Math.round(Math.random()*6)}px;
+      height:${6+Math.round(Math.random()*6)}px;
+      animation-delay:${(Math.random()*0.5).toFixed(2)}s;
+      animation-duration:${(1.0+Math.random()*0.6).toFixed(2)}s;
+    `;
+    wrap.appendChild(d);
+    setTimeout(() => d.remove(), 1800);
+  }
+}
+
+/* ── WIN ── */
+function showWin(name) {
+  document.getElementById('winPrizeName').textContent = name;
+  showOverlay('winOverlay');
+  spawnConfetti();
+}
+
+/* ── SPIN ── */
+function spin() {
+  const sl = active();
+  if (!sl.length) { alert('所有獎品已兌完！'); return; }
+  if (spinning) return;
+  spinning = true;
+  document.getElementById('spinBtn').disabled = true;
+
+  const totalRot = (5 + Math.random() * 5) * Math.PI * 2 + Math.random() * Math.PI * 2;
+  const duration = 3800;
+  const t0 = performance.now();
+  const a0 = angle;
+
+  function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+
+  function frame(now) {
+    const t = Math.min((now - t0) / duration, 1);
+    angle = a0 + totalRot * easeOut(t);
+    drawWheel(angle);
+    if (t < 1) { requestAnimationFrame(frame); return; }
+
+    spinning = false;
+    document.getElementById('spinBtn').disabled = false;
+
+    /* determine winner */
+    const step = Math.PI * 2 / sl.length;
+    const norm = (((-angle) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    const idx  = Math.floor(norm / step) % sl.length;
+    const winner = sl[idx];
+    const oi = prizes.indexOf(winner);
+    prizes[oi].quota = Math.max(0, prizes[oi].quota - 1);
+    savePrizes(); renderQuota(); drawWheel(angle);
+    showWin(winner.name);
+  }
+  requestAnimationFrame(frame);
+}
+
+function confirmReset() {
+  if (!confirm('確定要重置今日配額嗎？\n所有獎品將恢復為各自設定的每日配額數量。')) return;
+  prizes = prizes.map(p => ({ ...p, quota: p.dailyQuota }));
+  savePrizes();
+  renderEdit();
+  drawWheel(angle);
+  const msg = document.getElementById('resetMsg');
+  if (msg) {
+    msg.textContent = '✓ 今日配額已重置！';
+    setTimeout(() => { msg.textContent = ''; }, 3000);
+  }
+}
+
+/* ── INIT ── */
+function renderQuota() {
+  const el = document.getElementById('quotaGrid');
+  if (!el) return;
+  el.innerHTML = prizes.map(p => `
+    <div class="q-card${p.quota === 0 ? ' empty' : ''}">
+      <span class="q-name" title="${p.name}">${p.name}</span>
+      ${p.quota === 0
+        ? '<span class="badge-done">已兌完</span>'
+        : '<span class="badge-avail">有獎</span>'}
+    </div>`).join('');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  drawWheel();
+  renderQuota();
+});
+</script>
+</body>
+</html>
