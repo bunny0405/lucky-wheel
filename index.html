@@ -538,7 +538,7 @@ function active() { return prizes.filter(p => p.quota > 0); }
 
 /* ── DRAW WHEEL ── */
 function drawWheel(off = 0) {
-  const sl = active();
+  const sl = prizes; // always show ALL prizes
   const cx = 150, cy = 150, r = 136;
   ctx.clearRect(0, 0, 300, 300);
 
@@ -557,7 +557,8 @@ function drawWheel(off = 0) {
     const e = s + step;
     ctx.beginPath(); ctx.moveTo(cx, cy);
     ctx.arc(cx, cy, r, s, e); ctx.closePath();
-    ctx.fillStyle = WHEEL_COLORS[i % WHEEL_COLORS.length]; ctx.fill();
+    ctx.fillStyle = WHEEL_COLORS[i % WHEEL_COLORS.length];
+    ctx.fill();
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.stroke();
 
     ctx.save();
@@ -677,16 +678,33 @@ function showWin(name) {
 
 /* ── SPIN ── */
 function spin() {
-  const sl = active();
-  if (!sl.length) { alert('所有獎品已兌完！'); return; }
+  const available = active();
+  if (!available.length) { alert('所有獎品已兌完！'); return; }
   if (spinning) return;
   spinning = true;
   document.getElementById('spinBtn').disabled = true;
 
-  const totalRot = (5 + Math.random() * 5) * Math.PI * 2 + Math.random() * Math.PI * 2;
+  // Pick a random winner from available prizes
+  const winner = available[Math.floor(Math.random() * available.length)];
+  const winnerIdx = prizes.indexOf(winner);
+
+  // Calculate target angle to land pointer on winner's slice
+  const totalPrizes = prizes.length;
+  const step = Math.PI * 2 / totalPrizes;
+  // Center of winner slice (offset so pointer at top = -PI/2)
+  const sliceCenter = step * winnerIdx + step / 2;
+  const targetNorm = Math.PI * 2 - sliceCenter; // invert for rotation direction
+  // Add random offset within slice (±40% of slice width) for natural feel
+  const jitter = (Math.random() - 0.5) * step * 0.8;
+  const targetAngle = targetNorm + jitter;
+
+  // Normalise current angle, add full spins for drama
+  const fullSpins = (5 + Math.floor(Math.random() * 5)) * Math.PI * 2;
+  const a0 = angle;
+  const totalRot = fullSpins + ((targetAngle - (a0 % (Math.PI * 2))) + Math.PI * 2) % (Math.PI * 2);
+
   const duration = 3800;
   const t0 = performance.now();
-  const a0 = angle;
 
   function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
 
@@ -699,18 +717,9 @@ function spin() {
     spinning = false;
     document.getElementById('spinBtn').disabled = false;
 
-    /* determine winner — freeze the wheel at spin-start snapshot */
-    const step = Math.PI * 2 / sl.length;
-    const norm = (((-angle) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-    const idx  = Math.floor(norm / step) % sl.length;
-    const winner = sl[idx];
-    /* safety check: if winner quota already 0, re-pick from remaining */
-    const safeWinner = winner.quota > 0 ? winner : sl.find(p => p.quota > 0);
-    if (!safeWinner) { alert('所有獎品已兌完！'); return; }
-    const oi = prizes.indexOf(safeWinner);
-    prizes[oi].quota = Math.max(0, prizes[oi].quota - 1);
+    prizes[winnerIdx].quota = Math.max(0, prizes[winnerIdx].quota - 1);
     savePrizes(); renderQuota(); drawWheel(angle);
-    showWin(safeWinner.name);
+    showWin(winner.name);
   }
   requestAnimationFrame(frame);
 }
