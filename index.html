@@ -699,15 +699,18 @@ function spin() {
     spinning = false;
     document.getElementById('spinBtn').disabled = false;
 
-    /* determine winner */
+    /* determine winner — freeze the wheel at spin-start snapshot */
     const step = Math.PI * 2 / sl.length;
     const norm = (((-angle) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
     const idx  = Math.floor(norm / step) % sl.length;
     const winner = sl[idx];
-    const oi = prizes.indexOf(winner);
+    /* safety check: if winner quota already 0, re-pick from remaining */
+    const safeWinner = winner.quota > 0 ? winner : sl.find(p => p.quota > 0);
+    if (!safeWinner) { alert('所有獎品已兌完！'); return; }
+    const oi = prizes.indexOf(safeWinner);
     prizes[oi].quota = Math.max(0, prizes[oi].quota - 1);
     savePrizes(); renderQuota(); drawWheel(angle);
-    showWin(winner.name);
+    showWin(safeWinner.name);
   }
   requestAnimationFrame(frame);
 }
