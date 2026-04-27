@@ -371,20 +371,6 @@
     white-space: nowrap;
   }
   #pwMsg { font-size: 12px; color: var(--success); min-height: 16px; margin-top: 6px; }
-  .reset-btn {
-    width: 100%;
-    padding: 10px;
-    font-size: 14px;
-    font-weight: 600;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: #fff3f7;
-    color: #D980A8;
-    cursor: pointer;
-    border: 1px solid #f0c0d8;
-    transition: background 0.15s;
-  }
-  .reset-btn:hover { background: #fde8f2; }
   .back-btn {
     display: block;
     width: calc(100% - 32px);
@@ -540,12 +526,6 @@
     <div class="admin-panel">
       <p class="panel-title">編輯配額</p>
       <div id="editList"></div>
-    </div>
-    <div class="admin-panel">
-      <p class="panel-title">重置今日配額</p>
-      <p style="font-size:12px;color:var(--text-sub);margin-bottom:10px;">將所有獎品恢復為各自設定的「每日配額」數量，適合每天活動開始前操作。</p>
-      <button class="reset-btn" onclick="confirmReset()">重置為初始配額</button>
-      <div id="resetMsg" style="font-size:12px;color:#1D9E75;min-height:16px;margin-top:6px;"></div>
     </div>
     <div class="admin-panel">
       <p class="panel-title">修改管理密碼</p>
@@ -806,19 +786,6 @@ function spin() {
     showWin(winner.name);
   }
   requestAnimationFrame(frame);
-}
-
-function confirmReset() {
-  if (!confirm('確定要重置今日配額嗎？\n所有獎品將恢復為各自設定的每日配額數量。')) return;
-  prizes = prizes.map(p => ({ ...p, quota: p.dailyQuota }));
-  savePrizes();
-  renderEdit();
-  drawWheel(angle);
-  const msg = document.getElementById('resetMsg');
-  if (msg) {
-    msg.textContent = '✓ 今日配額已重置！';
-    setTimeout(() => { msg.textContent = ''; }, 3000);
-  }
 }
 
 /* ── INIT ── */
